@@ -1,0 +1,24 @@
+malloc and free wrapper
+
+USAGE:
+ $ LD_PRELOAD=/somewhere/malloc_wrapper.so foobar
+
+DESCRIPTION:
+ With this wrapper working as preloaded module, a target application
+ prints out memory allcation to a file.
+ By analyzing the file, you can find memory leaks, if any, and the
+ caller address of malloc where memory is not reclaimed.
+
+ File sample is following.
+   m 0x000000000213a2f0 0x0000000000000064 0x000000000040089c 0x00007f5595d5ea04
+   f 0x000000000213a160
+ where ...
+   1st column: [m]alloc or [f]ree
+   2nd column: address of memory region which is malloc-ed or free-ed
+   3rd column: size of memory region malloc-ed (malloc only)
+   the rest:   callstack (malloc only)
+
+
+TODO:
+ * some neat script which reads log file written by the wrapper
+   and indicates memory leaks, if any.
