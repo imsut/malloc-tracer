@@ -1,4 +1,4 @@
-target:=test malloc_wrapper.so
+target:=malloc_wrapper.so test libfoo.so
 
 ifeq "$(shell uname -m)" "ppc64"
 CC:=ppu-gcc
@@ -11,7 +11,10 @@ LDLIBS=-lpthread -ldl
 
 all: $(target)
 
-$(target):
+test: libfoo.so
+
+libfoo.o:
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ foo.c
 
 check:
 	LD_PRELOAD=./malloc_wrapper.so ./test -t 3 -l 3 && cat malloc.log

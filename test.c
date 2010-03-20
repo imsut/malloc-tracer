@@ -3,18 +3,29 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "foo.h"
+
 static const size_t MAX_NUM_THREADS = 32;
 
-static void* start_routine(void* arg)
-{
-    int num_loop = *(int*)arg;
+struct arg_t {
+    int num_loop;
+    double leak_prob;
+};
 
-    for (int i = 0; i < num_loop; ++i) {
-	void* p = malloc(100);
+static void* start_routine(void* p)
+{
+    struct arg_t* arg = (struct arg_t*) p;
+
+    for (int i = 0; i < arg->num_loop; ++i) {
+//	void* p = malloc(100);
+	void* p = foo_malloc(100);
 
 	usleep(100 * 1000); // sleep 100 ms
 
-	free(p);
+	if (! ((double) rand() / RAND_MAX < arg->leak_prob)) {
+//	    free(p);
+	    foo_free(p);
+	}
     }
 
     return NULL;
@@ -23,8 +34,10 @@ static void* start_routine(void* arg)
 static void print_usage(const char* prog_name)
 {
     fprintf(stderr,
-	    "USAGE: %s [-t NUM_THREADS]\n"
-	    "  -t: number of threads running\n"
+	    "USAGE: %s [-t NUM_THREADS] [-l NUM_LOOP] [-p LEAK_PROB]\n"
+	    "  -t: number of threads running (default: 2)\n"
+	    "  -l: number of loop each thread repeats malloc and free (default: 8)\n"
+	    "  -p: leak probability between 0.0 to 1.0 (default: 0.0)\n"
 	    "",
 	    prog_name);
 }
@@ -33,10 +46,11 @@ int main(int argc, char** argv)
 {
     int opt;
 
-    int num_threads = 1;
+    int num_threads = 2;
     int num_loop = 8;
+    double leak_prob = 0.0;
     
-    while ((opt = getopt(argc, argv, "t:l:")) != -1) {
+    while ((opt = getopt(argc, argv, "t:l:p:")) != -1) {
 	switch (opt) {
 	case 't':
 	    num_threads = atoi(optarg);
@@ -48,6 +62,9 @@ int main(int argc, char** argv)
 	case 'l':
 	    num_loop = atoi(optarg);
 	    break;
+	case 'p':
+	    leak_prob = atof(optarg);
+	    break;
 	default:
 	    print_usage(argv[0]);
 	    exit(EXIT_FAILURE);
@@ -55,8 +72,12 @@ int main(int argc, char** argv)
     }
 
     pthread_t threads[MAX_NUM_THREADS];
+    struct arg_t args[MAX_NUM_THREADS];
+
     for (int i = 0; i < num_threads; ++i) {
-	pthread_create(&threads[i], NULL, start_routine, &num_loop);
+	args[i].num_loop = num_loop;
+	args[i].leak_prob = leak_prob;
+	pthread_create(&threads[i], NULL, start_routine, &args[i]);
     }
 
     for (int i = 0; i < num_threads; ++i) {
