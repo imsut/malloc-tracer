@@ -3,18 +3,21 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+#include <pthread.h>
 
 #define MAX_BUFFER (4 * 1024)
 
 static void* (*malloc0)(size_t size);
 static void (*free0)(void* ptr);
 
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 static int fd;
 
 static void __attribute__((constructor))
@@ -33,6 +36,23 @@ static void __attribute__((destructor))
 fin()
 {
     close(fd);
+
+    char* filename = getenv("MALLOC_WRAPPER_MAPS_FILENAME");
+    if (filename && strlen(filename) > 0) {
+	int src = open("/proc/self/maps", O_RDONLY);
+	int dst = open(filename,
+		       O_RDWR | O_CREAT | O_TRUNC,
+		       S_IRUSR | S_IWUSR | S_IRGRP | S_IWOTH);
+
+	char buf[MAX_BUFFER];
+	ssize_t b;
+	while ((b = read(src, buf, sizeof(buf))) > 0) {
+	    write(dst, buf, b);
+	}
+
+	close(src);
+	close(dst);
+    }
 }
 
 /*
@@ -59,7 +79,6 @@ static char hex2char(int hex)
     if (hex < 10) {
 	return hex + '0';
     }
-
     return (hex - 10) + 'a';
 }
 
@@ -82,6 +101,22 @@ static int hexdump(char* buf, const char* ptr, size_t length)
     return idx;
 }
 
+static int __attribute__((always_inline))
+dump_callstack(char* buf)
+{
+    int pos = 0;
+    struct layout_t* lo = __builtin_frame_address(0);
+    while (lo) {
+	void* caller = lo->ret;
+	buf[pos++] = ' ';
+	pos += hexdump(&buf[pos], (char*) &caller, sizeof(caller));
+	
+	lo = (struct layout_t*) lo->next;
+    }
+
+    return pos;
+}
+
 void* malloc(size_t size)
 {
     void* ptr = malloc0(size);
@@ -96,6 +131,8 @@ void* malloc(size_t size)
     buf[pos++] = ' ';
     pos += hexdump(&buf[pos], (char*) &size, sizeof(size));
 
+    pos += dump_callstack(&buf[pos]);
+#if 0
     struct layout_t* lo = __builtin_frame_address(0);
     while (lo) {
 	void* caller = lo->ret;
@@ -104,9 +141,13 @@ void* malloc(size_t size)
 	
 	lo = (struct layout_t*) lo->next;
     }
+#endif
 
     buf[pos++] = '\n';
+
+    pthread_mutex_lock(&mutex);
     write(fd, buf, pos);
+    pthread_mutex_unlock(&mutex);
 
     return ptr;
 }
@@ -124,7 +165,16 @@ void free(void* ptr)
     buf[pos++] = ' ';
 
     pos += hexdump(&buf[pos], (char*) &ptr, sizeof(ptr));
+    buf[pos++] = ' ';
+
+    size_t dummy = 0;
+    pos += hexdump(&buf[pos], (char*) &dummy, sizeof(dummy));
+
+    pos += dump_callstack(&buf[pos]);
 
     buf[pos++] = '\n';
+
+    pthread_mutex_lock(&mutex);
     write(fd, buf, pos);
+    pthread_mutex_unlock(&mutex);
 }
