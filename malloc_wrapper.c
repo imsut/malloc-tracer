@@ -44,11 +44,11 @@ struct layout_t {
 #if (defined __x86_64) || (defined __x86)
     struct layout *next;
     void *ret;
-#elif (defined __powerpc64)
+#elif (defined __PPC64__)
     struct layout *__unbounded next;
     long condition_register;
     void *__unbounded ret;
-#elif (defined __powerpc32)
+#elif (defined __PPC32__)
     struct layout *__unbounded next;
     void *__unbounded ret;
 #endif
@@ -70,12 +70,10 @@ static int hexdump(char* buf, const char* ptr, size_t length)
     buf[idx++] = 'x';
     
     for (int i = 0; i < length; ++i) {
-#if (defined __x86_64) || (defined __x86)
-	// little endian
-	const unsigned char c = ptr[length - 1 - i];
-#else
-	// big endian
+#if (defined __BIG_ENDIAN__)
 	const unsigned char c = ptr[i];
+#else
+	const unsigned char c = ptr[length - 1 - i];
 #endif
 	buf[idx++] = hex2char(c / 16);
 	buf[idx++] = hex2char(c % 16);
