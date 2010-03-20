@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include "foo.h"
+#include "malloc_wrapper.h"
 
 void* foo_malloc(size_t size)
 {

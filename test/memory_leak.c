@@ -3,7 +3,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "foo.h"
+#include "malloc_wrapper.h"
 
 static const size_t MAX_NUM_THREADS = 32;
 

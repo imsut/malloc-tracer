@@ -26,8 +26,8 @@ init()
     * (void**)&malloc0 = dlsym(RTLD_NEXT, "malloc");
     * (void**)&free0 = dlsym(RTLD_NEXT, "free");
 
-    char* filename = getenv("MALLOC_WRAPPER_FILENAME");
-    fd = open(filename ? filename : "malloc.log",
+    char* filename = getenv("MALLOC_TRACER_FILENAME");
+    fd = open(filename ? filename : "malloc_trace.log",
 	      O_RDWR | O_CREAT | O_TRUNC,
 	      S_IRUSR | S_IWUSR | S_IRGRP | S_IWOTH);
 }
@@ -37,7 +37,7 @@ fin()
 {
     close(fd);
 
-    char* filename = getenv("MALLOC_WRAPPER_MAPS_FILENAME");
+    char* filename = getenv("MALLOC_TRACER_MAPS");
     if (filename && strlen(filename) > 0) {
 	int src = open("/proc/self/maps", O_RDONLY);
 	int dst = open(filename,

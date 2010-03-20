@@ -1,4 +1,4 @@
-target:=malloc_wrapper.so test libfoo.so
+target:=malloc_tracer.so test/memory_leak test/libmalloc_wrapper.so
 
 ifeq "$(shell uname -m)" "ppc64"
 CC:=ppu-gcc
@@ -11,13 +11,15 @@ LDLIBS=-lpthread -ldl
 
 all: $(target)
 
-test: libfoo.so
+test/memory_leak: test/libmalloc_wrapper.so
 
-libfoo.o:
-	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ foo.c
+test/libmalloc_wrapper.o:
+	$(CC) $(CPPFLAGS) $(CFLAGS) -c -o $@ test/malloc_wrapper.c
 
 check:
-	LD_PRELOAD=./malloc_wrapper.so ./test -t 3 -l 3 && cat malloc.log
+	MALLOC_TRACER_MAPS=maps LD_PRELOAD=./malloc_tracer.so \
+	./test/memory_leak -t 3 -l 3 -p 0.5 && cat malloc_trace.log && cat maps
+	./trace.rb -m maps malloc_trace.log
 
 clean:
 	rm -f $(target) *.o
