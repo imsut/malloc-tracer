@@ -21,4 +21,4 @@ DESCRIPTION:
 
 
 TODO:
- * test if malloc_wrapper works when program is not exitted normally.
+ * carve out addr2sym
