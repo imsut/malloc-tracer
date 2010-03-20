@@ -30,17 +30,12 @@ init()
     fd = open(filename ? filename : "malloc_trace.log",
 	      O_RDWR | O_CREAT | O_TRUNC,
 	      S_IRUSR | S_IWUSR | S_IRGRP | S_IWOTH);
-}
 
-static void __attribute__((destructor))
-fin()
-{
-    close(fd);
-
-    char* filename = getenv("MALLOC_TRACER_MAPS");
-    if (filename && strlen(filename) > 0) {
+    // copy /proc/[PID]/maps file
+    char* maps = getenv("MALLOC_TRACER_MAPS");
+    if (maps && strlen(maps) > 0) {
 	int src = open("/proc/self/maps", O_RDONLY);
-	int dst = open(filename,
+	int dst = open(maps,
 		       O_RDWR | O_CREAT | O_TRUNC,
 		       S_IRUSR | S_IWUSR | S_IRGRP | S_IWOTH);
 
@@ -53,6 +48,12 @@ fin()
 	close(src);
 	close(dst);
     }
+}
+
+static void __attribute__((destructor))
+fin()
+{
+    close(fd);
 }
 
 /*
