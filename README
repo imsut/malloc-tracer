@@ -1,7 +1,7 @@
-malloc and free wrapper
+malloc and free tracer to detect memory leaks
 
 USAGE:
- $ LD_PRELOAD=/somewhere/malloc_wrapper.so foobar
+ $ LD_PRELOAD=/somewhere/malloc_tracer.so target_executable
 
 DESCRIPTION:
  With this wrapper working as preloaded module, a target application
@@ -21,6 +21,4 @@ DESCRIPTION:
 
 
 TODO:
- * some neat script which reads log file written by the wrapper
-   and indicates memory leaks, if any.
  * test if malloc_wrapper works when program is not exitted normally.
