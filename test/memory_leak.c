@@ -16,14 +16,12 @@ static void* start_routine(void* p)
 {
     struct arg_t* arg = (struct arg_t*) p;
 
-    for (int i = 0; i < arg->num_loop; ++i) {
-//	void* p = malloc(100);
+    for (int i = 0; arg->num_loop < 0 || i < arg->num_loop; ++i) {
 	void* p = foo_malloc(100);
 
 	usleep(100 * 1000); // sleep 100 ms
 
 	if (! ((double) rand() / RAND_MAX < arg->leak_prob)) {
-//	    free(p);
 	    foo_free(p);
 	}
     }
