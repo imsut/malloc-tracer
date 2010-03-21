@@ -2,6 +2,7 @@
 
 require 'optparse'
 require 'pp'
+require 'addr2sym'
 
 mapfile = nil
 target = nil
@@ -18,17 +19,10 @@ end
 
 # read mapfile and construct address-to-binary map
 # maps: Range -> String
-maps = nil
+a2s = nil
 unless mapfile.nil?
-  maps = Hash.new
   File.open(mapfile) do |file|
-    file.each_line do |line|
-      range, perm, offset, dev, inode, pathname = line.split
-      if perm.include? 'x'
-        first, last = range.split '-'
-        maps[Range.new(first.hex, last.hex)] = pathname
-      end
-    end
+    a2s = Addr2Sym.new file
   end
 end
 
@@ -48,6 +42,11 @@ File.open(filename) do |f|
       arr.push(allocation.new(address, size, callstack))
     elsif type == 'f' # free
       idx = arr.rindex { |alloc| alloc.address == address}
+      if idx.nil?
+        puts "orphaned free found, but continue processing..."
+        next
+      end
+      
       arr.delete_at idx
     else # unknown
       puts "Unknown operation type found: #{type}."
@@ -64,52 +63,6 @@ size = arr.size
 puts "#{size} leaks found..."
 puts
 
-def symbol_table_of pathname
-  symtbl_entry = Struct.new :address, :size, :name
-
-  tbl = Array.new
-
-  readelf_s = `readelf -s #{pathname}`
-  readelf_s.each_line do |line|
-    idx, address, size, type, bind, vis, ndx, name = line.split
-    if size.to_i > 0 and type == 'FUNC'
-      tbl.push symtbl_entry.new(address.hex, size.to_i, name)
-    end
-  end
-
-  tbl
-end
-
-def executable? pathname
-  elfheader = `readelf -h #{pathname}`
-  /Type:\s+EXEC/ =~ elfheader
-end
-
-def addr2sym maps, addr
-  maps.each do |range, pathname|
-    if range.include? addr
-      symtbl = symbol_table_of pathname
-
-      if executable? pathname
-        offset = addr
-      else
-        offset = addr - range.first
-      end
-
-      funcname = '?'
-      offset2 = '?'
-      symtbl.each do |entry|
-        if entry.address < offset and entry.address + entry.size > offset
-          funcname = entry.name
-          offset2 = (offset - entry.address).to_s(16)
-        end
-      end
-
-      return "#{funcname}+0x#{offset2} in #{pathname}"
-    end
-  end
-end
-
 arr.each_index do |idx|
   puts "#{idx}-th memory leak:"
 
@@ -124,8 +77,9 @@ arr.each_index do |idx|
       func, line = output.split
       puts "    #{caller} #{func} #{line}"
     else
-      sym = addr2sym maps, caller.hex
-      puts "    #{caller} #{sym}"
+      sym = a2s.translate caller.hex
+      offset = sym.offset.nil? ? '?' : sym.offset.to_s(16)
+      puts "    #{caller} #{sym.funcname}+0x#{offset} in #{sym.pathname}"
     end
   end
 
