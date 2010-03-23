@@ -61,11 +61,6 @@ class Addr2Sym
     end
   end
 
-  def executable? pathname
-    elfheader = `readelf -h #{pathname}`
-    /Type:\s+EXEC/ =~ elfheader
-  end
-
   def translate_one addr
     @maps.each do |range, pathname|
       if range.include? addr
