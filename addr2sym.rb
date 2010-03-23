@@ -3,6 +3,7 @@
 class Addr2Sym
   def initialize mapfile
     @maps = Hash.new
+    @symtbls = Hash.new
 
     mapfile.each_line do |line|
       range, perm, offset, dev, inode, pathname = line.split
@@ -47,6 +48,10 @@ class Addr2Sym
   end
 
   def symbol_table_of pathname
+    if @symtbls.key? pathname
+      return @symtbls[pathname]
+    end
+
     base = base_address_of_symtbl_of pathname
 
     entry = Struct.new :address, :name
