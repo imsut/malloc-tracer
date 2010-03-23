@@ -57,7 +57,7 @@ class Addr2Sym
     entry = Struct.new :address, :name
 
     symlist = `objdump -d -j .text #{pathname} | grep -E "^[0-9a-f]+\s+.+:$"`
-    symlist.each_line.inject([]) do |tbl, line|
+    @symtbls[pathname] = symlist.each_line.inject([]) do |tbl, line|
       address, name_with_bracket = line.chomp.split
       md = /\<(.+)\>/.match(name_with_bracket)
       name = md[1]
