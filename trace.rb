@@ -64,7 +64,7 @@ puts "#{size} leaks found..."
 puts
 
 arr.each_index do |idx|
-  puts "#{idx}-th memory leak:"
+  puts "memory leak #{idx}:"
 
   alloc = arr[idx]
   puts "  address  : #{alloc.address}"

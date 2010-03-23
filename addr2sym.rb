@@ -28,17 +28,36 @@ class Addr2Sym
   #
   private
 
-  def symbol_table_of pathname
-    entry = Struct.new :address, :size, :name
+  def base_address_of_symtbl_of pathname
+    # detect base address
+    readelf_l = `readelf -Wl #{pathname}`
 
-    readelf_s = `readelf -s #{pathname}`
-    readelf_s.each_line.inject([]) do |tbl, line|
-      idx, address, size, type, bind, vis, ndx, name = line.split
-      if size.to_i > 0 and type == 'FUNC'
-        tbl.push entry.new(address.hex, size.to_i, name)
-      else
-        tbl
-      end
+    base = 0
+    readelf_l.each_line do |line|
+      type, offset, virtaddr, physaddr, filesiz, memsize, rest = line.chomp.split(nil, 7)
+      next unless type == 'LOAD' # ignore all except 'LOAD' sections
+
+      flg, _, align = rest.rpartition(' ')
+      next unless flg.include? 'E' # ignore non-'E'xecutable sections
+
+      base = virtaddr.hex - (virtaddr.hex % align.hex)
+    end
+
+    base
+  end
+
+  def symbol_table_of pathname
+    base = base_address_of_symtbl_of pathname
+
+    entry = Struct.new :address, :name
+
+    symlist = `objdump -d -j .text #{pathname} | grep -E "^[0-9a-f]+\s+.+:$"`
+    symlist.each_line.inject([]) do |tbl, line|
+      address, name_with_bracket = line.chomp.split
+      md = /\<(.+)\>/.match(name_with_bracket)
+      name = md[1]
+
+      tbl.push entry.new(address.hex - base, name)
     end
   end
 
@@ -50,18 +69,16 @@ class Addr2Sym
   def translate_one addr
     @maps.each do |range, pathname|
       if range.include? addr
-        symtbl = symbol_table_of pathname
-
-        if executable? pathname
-          offset = addr
-        else
-          offset = addr - range.first
-        end
+        offset = addr - range.first
 
         ret_type = Struct.new :funcname, :offset, :pathname
         s = ret_type.new('?', nil, pathname)
-        symtbl.each do |entry|
-          if entry.address < offset and entry.address + entry.size > offset
+        
+        symtbl = symbol_table_of pathname
+        symtbl.each_index do |idx|
+          entry = symtbl[idx]
+          if entry.address < offset and
+              (symtbl[idx + 1].nil? or symtbl[idx + 1].address > offset)
             s.funcname = entry.name
             s.offset = offset - entry.address
             break
