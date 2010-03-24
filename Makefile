@@ -24,7 +24,7 @@ check:
 	./trace.rb -m maps malloc_trace.log
 
 clean:
-	rm -f $(target) *.o
+	rm -f $(target) *.o test/*.o
 
 .SUFFIXES: .so
 .o.so:
